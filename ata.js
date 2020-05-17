@@ -196,6 +196,28 @@ var kill = (who, pos)=>{
     board.decks[who][slot]["hp"] = 0;
 }
 
+var payback = (who, val, pos) => {
+    let slot = find_slot(who, pos);
+    let card = board.decks[who][slot];
+    let shielded = get_val(card, "shielded");
+    if (val > shielded){
+        if ("shielded" in card) card["shielded"] = 0;
+        val -= shielded;
+        if (card["hp"] < val+0.1){
+            kill(who, pos);
+            val -= card["hp"];
+            board.decks[who][0]["hp"] -= val;
+        }
+        else{
+            card["hp"] -= val;
+        }
+    }
+    else{
+        card["shielded"] -= val;
+    }
+    return payback;
+};
+
 var physical = (who, val, pos) => {
     let slot = find_slot(who, pos);
     let payback = 0;
@@ -376,7 +398,7 @@ var place = (card, position, sleep = 1, animation_interval = 1000) => {
                 motivate(board.whos_turn, cd["pos"], cd["craze"], "craze");
             }
             let payb = physical(1-board.whos_turn, atk, cd["pos"]);
-            physical(board.whos_turn, payb, cd["pos"]);
+            payback(board.whos_turn, payb, cd["pos"]);
             animate(1-board.whos_turn, cd["pos"], animation_time, "pink");
             animate(board.whos_turn, cd["pos"], animation_time, "pink");
             animation_time += animation_interval;
