@@ -64,6 +64,14 @@ var items = {
         "heal": 14,
         "hijack": 6,
         "cripple": 10,
+    },
+    "MPeggy20": {
+        "name": "MPeggy20",
+        "original_atk": 18,
+        "original_hp": 70,
+        "payback": 16,
+        "healall": 8,
+        "gas": 17,
     }
 }
 
@@ -99,6 +107,22 @@ var combos = {
         "leech": 35,
         "gas":35,
         "craze":17,
+    },
+    "Hypnotoad+Peggy":{
+        "name": "Ciggy",
+        "original_atk": 24,
+        "original_hp": 109,
+        "leech": 35,
+        "gas":35,
+        "craze":20,
+    },
+    "Hypnotoad+MPeggy20":{
+        "name": "Ciggy",
+        "original_atk": 29,
+        "original_hp": 127,
+        "leech": 42,
+        "gas":42,
+        "crazed":23,
     }
 }
 
