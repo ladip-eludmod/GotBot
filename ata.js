@@ -307,6 +307,14 @@ var animate = (who, pos, start, color) =>{
     }, start);
 };
 
+var check_through = (who, atk, pos) =>{
+    let slot = find_slot(who, pos);
+    if (slot == -1) return false;
+    let cd = board.decks[who][slot];
+    let barrier = get_val(cd, "shielded") + get_val(cd, "sturdy");
+    return atk > 0.1 + barrier;
+};
+
 var place = (card, position, sleep = 1, animation_interval = 1000) => {
     let found = find_slot(board.whos_turn, position);
     let animation_time = 0.0;
@@ -412,14 +420,16 @@ var place = (card, position, sleep = 1, animation_interval = 1000) => {
 
         let atk = cd["atk"] - get_val(cd, "crippled") + get_val(cd, "hijacked_from_left") + get_val(cd, "hijacked_from_right") + get_val(cd, "hijacked_from_craze") + get_val(cd, "hijacked_from_cheer");
         if (cd["pos"]>0.1){
-            if ("gas" in cd){
-                gas(1-board.whos_turn, cd["gas"], cd["pos"]);
-            }
-            if ("leech" in cd){
-                leech(board.whos_turn, cd["leech"], cd["pos"]);
-            }
-            if ("craze" in cd){
-                motivate(board.whos_turn, cd["pos"], cd["craze"], "craze");
+            if (check_through){
+                if ("gas" in cd){
+                    gas(1-board.whos_turn, cd["gas"], cd["pos"]);
+                }
+                if ("leech" in cd){
+                    leech(board.whos_turn, cd["leech"], cd["pos"]);
+                }
+                if ("craze" in cd){
+                    motivate(board.whos_turn, cd["pos"], cd["craze"], "craze");
+                }
             }
             let payb = physical(1-board.whos_turn, atk, cd["pos"]);
             if (payb != undefined)
