@@ -1,0 +1,66 @@
+<html>
+
+<head>
+
+<script src="ata.js"></script>
+<script src="vex.combined.min.js"></script>
+<script>vex.defaultOptions.className = 'vex-theme-os'</script>
+<link rel="stylesheet" href="vex.css" />
+<link rel="stylesheet" href="vex-theme-os.css" />
+
+</head>
+
+<body>
+
+<table>
+<tr><td>Item</td>
+<td>
+<input id="item"></input>
+</td></tr>
+<tr><td>CA stats</td>
+<td>
+<span>Gas/Leech/Crazed/Atk/HP</span>
+<input style="width:20px" id="gas"></input>
+<input style="width:20px"id="leech"></input>
+<input style="width:20px"id="craze"></input>
+<input style="width:20px"id="atk"></input>
+<input style="width:30px"id="hp"></input>
+</td></tr>
+<tr style="display:none;"><td>Char</td>
+<td>
+<input id="char"></input>
+</td></tr>
+<tr><td>Player #0 Sequence</td>
+<td>
+<input id="seq0"></input>
+</td></tr>
+<tr><td>Player #1 Sequence</td><td>
+<input id="seq1"></input>
+</td></tr>
+<tr><td>Speed</td><td>
+<input id="int"></input>
+</td></tr>
+<tr><td>
+Explain: C - character card, I - item card, P - power card, + - repeat
+</tr></td>
+<tr><td align="center">
+<button onclick="autoplay(document.getElementById('seq0').value, document.getElementById('seq1').value, document.getElementById('item').value, document.getElementById('char').value, 'FAL', parseInt(document.getElementById('int').value));">Let's rock!</button>
+<button onclick="rewind();">Rewind</button>
+</td>
+</tr>
+</table>
+
+ <div id="div-display">
+ </div>
+
+ <div id="log">
+ </div>
+
+
+<script>
+rewind();
+</script>
+
+</body>
+
+</html>
