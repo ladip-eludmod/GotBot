@@ -33,7 +33,7 @@ var HLeela = {
     "original_atk": 0,
     "original_hp": 95,
     "shield": 5,
-    "cheerall": 4,
+    "cheerall": 3,
 };
 
 var items = {
@@ -118,11 +118,11 @@ var combos = {
     },
     "Hypnotoad+MPeggy20":{
         "name": "Ciggy",
-        "original_atk": 29,
+        "original_atk": 35,
         "original_hp": 127,
         "leech": 42,
         "gas":42,
-        "crazed":23,
+        "craze":23,
     }
 }
 
@@ -233,6 +233,7 @@ var kill = (who, pos)=>{
     if (left_slot != -1){
         let left_card = board.decks[who][left_slot];
         if ("motivated_from_right" in left_card) {
+            left_card["atk"] -= left_card["motivated_from_right"];
             left_card["motivated_from_right"] = 0;
             let opp_slot = find_slot(1-who, pos - 1);
             if (opp_slot != -1)
@@ -243,6 +244,7 @@ var kill = (who, pos)=>{
     if (right_slot != -1){
         let right_card = board.decks[who][right_slot];
         if ("motivated_from_left" in right_card) {
+            right_card["atk"] -= right_card["motivated_from_left"];
             right_card["motivated_from_left"] = 0;
             let opp_slot = find_slot(1-who, pos + 1);
             if (opp_slot != -1)
