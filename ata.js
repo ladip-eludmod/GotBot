@@ -3,6 +3,7 @@
 var board = {
     whos_turn: 0,// 0 or 1
     prepared: 0,
+    last_update : -1,
     sleep :2,
     decks: [[], []],
 };
@@ -136,7 +137,10 @@ var cripple = (card, val)=>{
 };
 
 var shield = (card, val)=>{
+    console.log(card);
+    console.log("SHIELD0", val, card["shielded"]);
     if (!("shielded" in card)) card["shielded"] = 0;
+    console.log("SHIELD", val, card["shielded"]);
     card["shielded"] += val;
 };
 
@@ -220,6 +224,7 @@ var kill = (who, pos)=>{
 var payback = (who, val, pos) => {
     let slot = find_slot(who, pos);
     let card = board.decks[who][slot];
+    if (!("shielded" in card)) card["shielded"] = 0;
     let shielded = get_val(card, "shielded");
     if (val > shielded){
         if ("shielded" in card) card["shielded"] = 0;
@@ -252,6 +257,7 @@ var physical = (who, val, pos) => {
         val -= sturdy;
         if (val < 0.1) return;
         let shielded = get_val(card, "shielded");
+        if (!("shielded" in card)) card["shielded"] = 0;
         if (val > shielded){
             if ("shielded" in card) card["shielded"] = 0;
             val -= shielded;
@@ -265,6 +271,7 @@ var physical = (who, val, pos) => {
             }
         }
         else{
+            console.log("YYY",val);
             card["shielded"] -= val;
         }
     }
@@ -313,6 +320,7 @@ var place = (card, position, sleep = 1, animation_interval = 1000) => {
         this_card["atk"] = this_card["original_atk"];
         this_card["hp"] = this_card["original_hp"];
         this_card["displayed_atk"] = this_card["atk"];
+        this_card["shielded"] = 0;
         let left_slot = find_slot(board.whos_turn, position - 1);
         if (left_slot >= 0) {
             let left_card = board.decks[board.whos_turn][left_slot];
@@ -414,7 +422,8 @@ var place = (card, position, sleep = 1, animation_interval = 1000) => {
                 motivate(board.whos_turn, cd["pos"], cd["craze"], "craze");
             }
             let payb = physical(1-board.whos_turn, atk, cd["pos"]);
-            payback(board.whos_turn, payb, cd["pos"]);
+            if (payb != undefined)
+                payback(board.whos_turn, payb, cd["pos"]);
             animate(1-board.whos_turn, cd["pos"], animation_time, "pink");
             animate(board.whos_turn, cd["pos"], animation_time, "pink");
             animation_time += animation_interval;
@@ -580,7 +589,6 @@ var find_first_combo_slot = (name) =>{
 };
 
 var seq_place = (que, ith, start, animation_interval) =>{
-    console.log(animation_interval);
     setTimeout(
         ()=>{
             if (ith>= que.length) return;
@@ -590,8 +598,6 @@ var seq_place = (que, ith, start, animation_interval) =>{
             let card = PCs["FAL"];
             if (que[ith] in PCs) card = PCs[que[ith]];
             if (que[ith] in items) card = items[que[ith]];
-            console.log(card);
-            console.log(que[ith]);
             let sleep = place(card, slot, board.sleep, animation_interval);
             if (board.sleep === 2) board.sleep = 1;
             if (sleep > 0){
