@@ -420,7 +420,7 @@ var place = (card, position, sleep = 1, animation_interval = 1000) => {
 
         let atk = cd["atk"] - get_val(cd, "crippled") + get_val(cd, "hijacked_from_left") + get_val(cd, "hijacked_from_right") + get_val(cd, "hijacked_from_craze") + get_val(cd, "hijacked_from_cheer");
         if (cd["pos"]>0.1){
-            if (check_through){
+            if (check_through(1-board.whos_turn, atk, cd["pos"])){
                 if ("gas" in cd){
                     gas(1-board.whos_turn, cd["gas"], cd["pos"]);
                 }
