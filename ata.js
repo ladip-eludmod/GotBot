@@ -646,6 +646,21 @@ var autoplay = (seq0, seq1, item, chr, pc, animation_interval = 200) =>{
     }
 };
 
+
+var rewind = ()=>{
+    board = {
+        whos_turn: 0,// 0 or 1
+        prepared: 0,
+        last_update : -1,
+        sleep :2,
+        decks: [[], []],
+    }
+    init(HLeela, HConsuela);
+    document.getElementById("seq0").value = "P+";
+    document.getElementById("seq1").value = "PIPCP+";
+    document.getElementById("int").value = "200";
+}
+
 var init = (Hero0, Hero1)=>{
     let output = "<table>";
     for (let i in [0, 1]){
