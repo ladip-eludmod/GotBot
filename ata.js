@@ -118,7 +118,7 @@ var combos = {
     },
     "Hypnotoad+MPeggy20":{
         "name": "Ciggy",
-        "original_atk": 35,
+        "original_atk": 29,
         "original_hp": 127,
         "leech": 42,
         "gas":42,
