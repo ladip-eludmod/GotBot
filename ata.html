@@ -13,6 +13,14 @@
 <body>
 
 <table>
+<tr><td>Item</td>
+<td>
+<input id="item"></input>
+</td></tr>
+<tr><td>Char</td>
+<td>
+<input id="char"></input>
+</td></tr>
 <tr><td>Player #0 Sequence</td>
 <td>
 <input id="seq0"></input>
@@ -27,7 +35,7 @@
 Explain: C - character card, I - item card, P - power card, + - repeat
 </tr></td>
 <tr><td align="center">
-<button onclick="autoplay(document.getElementById('seq0').value, document.getElementById('seq1').value, 'Hypnotoad', 'Hank', 'FAL', parseInt(document.getElementById('int').value));">Let's rock!</button>
+<button onclick="autoplay(document.getElementById('seq0').value, document.getElementById('seq1').value, document.getElementById('item').value, document.getElementById('char').value, 'FAL', parseInt(document.getElementById('int').value));">Let's rock!</button>
 <button onclick="rewind();">Rewind</button>
 </td>
 </tr>

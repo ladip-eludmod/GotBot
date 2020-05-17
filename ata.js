@@ -86,12 +86,20 @@ var combos = {
     },
     "Hypnotoad+Hank": {
         "name": "Ciggy",
-        "original_atk": 24,
-        "original_hp": 85,
-        "leech": 30,
-        "gas": 30,
-        "craze": 17,
+        "original_atk": 26,
+        "original_hp": 92,
+        "leech": 32,
+        "gas": 32,
+        "craze": 18,
     },
+    "Monkey+Hank":{
+        "name": "Ciggy",
+        "original_atk": 34,
+        "original_hp": 74,
+        "leech": 35,
+        "gas":35,
+        "craze":17,
+    }
 }
 
 var find_slot = (who, position)=>{
@@ -669,6 +677,8 @@ var rewind = ()=>{
     document.getElementById("seq0").value = "P+";
     document.getElementById("seq1").value = "PIPCP+";
     document.getElementById("int").value = "200";
+    document.getElementById("item").value = "Hypnotoad";
+    document.getElementById("char").value = "Hank";
 }
 
 var init = (Hero0, Hero1)=>{
