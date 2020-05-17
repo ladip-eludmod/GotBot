@@ -12,8 +12,26 @@
 
 <body>
 
-<canvas id="cvs">
-</canvas>
+<table>
+<tr><td>Player #0 Sequence</td>
+<td>
+<input id="seq0"></input>
+</td></tr>
+<tr><td>Player #1 Sequence</td><td>
+<input id="seq1"></input>
+</td></tr>
+<tr><td>Speed</td><td>
+<input id="int"></input>
+</td></tr>
+<tr><td>
+Explain: C - character card, I - item card, P - power card, + - repeat
+</tr></td>
+<tr><td align="center">
+<button onclick="autoplay(document.getElementById('seq0').value, document.getElementById('seq1').value, 'Hypnotoad', 'Hank', 'FAL', parseInt(document.getElementById('int').value));">Let's rock!</button>
+</td>
+</tr>
+</table>
+
  <div id="div-display">
  </div>
 
@@ -21,7 +39,12 @@
  </div>
 
 
-<script>init(HLeela, HConsuela);</script>
+<script>
+init(HLeela, HConsuela);
+document.getElementById("seq0").value = "P+";
+document.getElementById("seq1").value = "PIPCP+";
+document.getElementById("int").value = "200";
+</script>
 
 </body>
 

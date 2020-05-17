@@ -38,10 +38,15 @@ var HLeela = {
 var items = {
     "Monkey": {
         "name": "Monkey",
-        "original_atk": 25,
-        "original_hp": 44,
+        "original_atk": 20,
+        "original_hp": 35,
         "sturdy": 11,
         "leech": 13,
+    },
+    "Hank": {
+        "name": "Hank",
+        "original_atk": 15,
+        "original_hp": 36,
     },
     "Peggy": {
         "name": "Peggy",
@@ -50,6 +55,14 @@ var items = {
         "healall": 3,
         "payback": 8,
         "gas": 10,
+    },
+    "Hypnotoad": {
+        "name": "Hypnotoad",
+        "original_atk": 14,
+        "original_hp": 65,
+        "heal": 14,
+        "hijack": 6,
+        "cripple": 10,
     }
 }
 
@@ -69,6 +82,14 @@ var combos = {
         "leech": 37,
         "gas": 37,
         "craze": 21,
+    },
+    "Hypnotoad+Hank": {
+        "name": "Ciggy",
+        "original_atk": 24,
+        "original_hp": 85,
+        "leech": 30,
+        "gas": 30,
+        "craze": 17,
     },
 }
 
@@ -90,10 +111,10 @@ var motivate = (who, position, val, where)=>{
     if (opp_slot >= 0){
         let opp_card = board.decks[1 - who][opp_slot];
         if ("hijack" in opp_card){
-            let hijacked = max(val, opp_card["hijack"]);
+            let hijacked = Math.min(val, get_val(opp_card, "hijack"));
             opp_card["hijacked_from_" + where] = hijacked;
             tar_card["motivated_from_" + where] = val - hijacked;
-            tar_card["atk"] += (val - hijack);
+            tar_card["atk"] += (val - hijacked);
         }
         else{
             tar_card["motivated_from_" + where] = val;
@@ -120,10 +141,10 @@ var shield = (card, val)=>{
 };
 
 var print_card = (cd, color)=>{
-    cd["displayed_atk"] = cd["atk"] - get_val(cd, "crippled");
+    cd["displayed_atk"] = cd["atk"] - get_val(cd, "crippled") + get_val(cd, "hijacked_from_left") + get_val(cd, "hijacked_from_right") + get_val(cd, "hijacked_from_craze") + get_val(cd, "hijacked_from_cheer");
     let output = `<table style='border:1px black solid;' bgcolor='${color}'>`;
-    let skillset = ["motivate", "shield", "crippleall", "shieldall", "cheerall", "cheer", "leech", "gas", "craze", "sturdy", "payback"];
-    let effectset = ["gassed", "crippled", "motivated_from_left", "motivated_from_right", "shielded", "gased", "crazed"];
+    let skillset = ["motivate", "shield", "crippleall", "shieldall", "cheerall", "cheer", "leech", "gas", "craze", "sturdy", "payback", "hijack"];
+    let effectset = ["gassed", "crippled", "motivated_from_left", "motivated_from_right", "shielded", "gased", "crazed", "hijacked_from_left", "hijacked_from_right", "hijacked_from_craze", "hijacked_from_cheer"];
     output += ("<tr ><td style='border:1px black solid;'>" + (`<span style="width:30px;height:15px">Name</span></td><td> ${cd["name"]}`) + "</td></tr>");
     for (let x in cd){
         if (skillset.includes(x)){
@@ -156,7 +177,7 @@ var print_card = (cd, color)=>{
     output += "<tr><td>Status</td></tr>";
     for (let x in cd){
         if ((cd[x] > -0.1) && (cd[x] < 0.1)) continue;
-        if (x.includes("motivated_from"))
+        if (x.includes("motivated_from") || x.includes("hijacked_from"))
             output += ("<tr ><td style='border:1px black solid;'>" + (`<img style="width:32px;height:15px" src="img/effect_${x}.png" alt="${x}"></img></td><td> ${cd[x]}`) + "</td></tr>");
         else if (effectset.includes(x)){
             output += ("<tr ><td style='border:1px black solid;'>" + (`<img style="width:16px;height:15px" src="img/effect_${x}.png" alt="${x}"></img></td><td> ${cd[x]}`) + "</td></tr>");
@@ -273,7 +294,6 @@ var animate = (who, pos, start, color) =>{
     let slot = find_slot(who, pos);
     if (slot == -1) return;
     let this_card = board.decks[who][slot];
-    console.log(who, pos, slot);
 
     setTimeout(()=>{
         document.getElementById(`slot-${who}-${pos}`).innerHTML = print_card(this_card, color);
@@ -294,7 +314,6 @@ var place = (card, position, sleep = 1, animation_interval = 1000) => {
         this_card["hp"] = this_card["original_hp"];
         this_card["displayed_atk"] = this_card["atk"];
         let left_slot = find_slot(board.whos_turn, position - 1);
-        console.log("L "+left_slot);
         if (left_slot >= 0) {
             let left_card = board.decks[board.whos_turn][left_slot];
             if ("motivate" in card){
@@ -316,12 +335,10 @@ var place = (card, position, sleep = 1, animation_interval = 1000) => {
         let new_card = {};
         for (let x in old_card) {
             if (!(x in items[old_card["name"]])){
-                console.log("XXX",x);
                 new_card[x] = old_card[x];
             }
         }
         for (let x in combos[old_card["name"]+"+"+card["name"]]){
-            console.log("LL", x);
             new_card[x] = combos[old_card["name"]+"+"+card["name"]][x];
         }
         for (let x in old_card) delete old_card[x];
@@ -329,7 +346,6 @@ var place = (card, position, sleep = 1, animation_interval = 1000) => {
         old_card["atk"] = old_card["original_atk"] + atk_change;
         old_card["hp"] = old_card["original_hp"] + hp_change;
         old_card["sleep"] = 0;
-        console.log(old_card);
         animate(board.whos_turn, position, animation_time, "orange");
         animation_time += animation_interval;
         animate(board.whos_turn, position, animation_time, "white");
@@ -386,7 +402,7 @@ var place = (card, position, sleep = 1, animation_interval = 1000) => {
         }
 
 
-        let atk = cd["atk"] - get_val(cd, "crippled");
+        let atk = cd["atk"] - get_val(cd, "crippled") + get_val(cd, "hijacked_from_left") + get_val(cd, "hijacked_from_right") + get_val(cd, "hijacked_from_craze") + get_val(cd, "hijacked_from_cheer");
         if (cd["pos"]>0.1){
             if ("gas" in cd){
                 gas(1-board.whos_turn, cd["gas"], cd["pos"]);
@@ -402,6 +418,8 @@ var place = (card, position, sleep = 1, animation_interval = 1000) => {
             animate(1-board.whos_turn, cd["pos"], animation_time, "pink");
             animate(board.whos_turn, cd["pos"], animation_time, "pink");
             animation_time += animation_interval;
+            cd["hijacked_from_cheer"] = 0;
+            cd["hijacked_from_craze"] = 0;
             animate(1-board.whos_turn, cd["pos"], animation_time, "white");
             animate(board.whos_turn, cd["pos"], animation_time, "white");
         }
@@ -443,6 +461,7 @@ var place = (card, position, sleep = 1, animation_interval = 1000) => {
     let hero_slot = find_slot(board.whos_turn, 0);
     if ((hero_slot == -1)&&(board.prepared)) {
         vex.dialog.alert({message: `Player #${1-board.whos_turn} wins!`});
+        board.prepared = -1;
         return -1;
     }
     return animation_time;
@@ -458,6 +477,7 @@ var reprom = (value) => {
     });}, 100
     )
 };
+
 
 
 var prom = (old_val) => {
@@ -489,15 +509,11 @@ var prom = (old_val) => {
             for (let i = 0; i < 26; i++){
                 used[i] = false;
             }
-            console.log("TTT");
             let comboq = false;
             for (let cd of board.decks[board.whos_turn]){
                 used[cd["pos"]] = true;
                 if (cd["pos"] == pos){
-                    console.log(name in items);
-                    console.log(cd["name"]+"+"+name);
                     if ((!(name in items)) || (!(cd["name"]+"+"+name)in combos)){
-                        console.log(cd["name"]+"+"+name);
                         reprom(value);
                         return;
                     }
@@ -532,6 +548,98 @@ var prom = (old_val) => {
     })
 };
 
+var find_first_unused_slot = () =>{
+    used = {}
+    for (let i = 0; i < 26; i++){
+        used[i] = false;
+    }
+    for (let cd of board.decks[board.whos_turn]){
+        used[cd["pos"]] = true;
+    }
+    let smallest = 25;
+    for (let i = 0; i < 26; i++){
+        if (!used[i]) {
+            smallest = i;
+            break;
+        }
+    }
+    return smallest;
+};
+
+var find_first_combo_slot = (name) =>{
+    let smallest = 26;
+    for (let cd of board.decks[board.whos_turn]){
+        if (cd["name"]+"+"+name in combos){
+            smallest = Math.min(smallest, cd["pos"]);
+        }
+    }
+    if (smallest == 26)
+        return find_first_unused_slot();
+    else 
+        return smallest;
+};
+
+var seq_place = (que, ith, start, animation_interval) =>{
+    console.log(animation_interval);
+    setTimeout(
+        ()=>{
+            if (ith>= que.length) return;
+            if (board.prepared != 1) return;
+
+            let slot = find_first_combo_slot(que[ith]);
+            let card = PCs["FAL"];
+            if (que[ith] in PCs) card = PCs[que[ith]];
+            if (que[ith] in items) card = items[que[ith]];
+            console.log(card);
+            console.log(que[ith]);
+            let sleep = place(card, slot, board.sleep, animation_interval);
+            if (board.sleep === 2) board.sleep = 1;
+            if (sleep > 0){
+                document.getElementById("log").innerHTML += `<span>What card to place for Player #${board.whos_turn}?  --${que[ith]} at ${slot}.</span><br>`;
+                seq_place(que, ith+1, sleep, animation_interval);
+            }
+        }, start
+    );
+};
+
+var check_seq = (st) => {
+    if (!((typeof st) == "string"))
+        return false;
+    for (let i = 0; i < st.length - 1; i++){
+        if (!("PCI".includes(st[i]))){
+            return false;
+        }
+    }
+    if (st.length === 0) return false;
+    return (st[st.length-1]) == '+';
+};
+
+var make_que = (st, item, chr, pc) => {
+    if (check_seq(st)){
+        let que = [];
+        let dict = {"P":pc, "I":item, "C":chr};
+        for (let i = 0; i < st.length - 1; i++){
+            que.push(dict[st[i]]);
+        }
+        while (que.length < 25) que.push(pc);
+        return que;
+    }
+    return [];
+};
+
+var autoplay = (seq0, seq1, item, chr, pc, animation_interval = 200) =>{
+    if (check_seq(seq0) && check_seq(seq1)){
+        let que0 = make_que(seq0, item, chr, pc);
+        let que1 = make_que(seq1, item, chr, pc);
+        let merge = [];
+        for (let i = 0; i < 25; i++){
+            merge.push(que0[i]);
+            merge.push(que1[i]);
+        }
+        seq_place(merge, 0, 0, animation_interval);
+    }
+};
+
 var init = (Hero0, Hero1)=>{
     let output = "<table>";
     for (let i in [0, 1]){
@@ -549,6 +657,5 @@ var init = (Hero0, Hero1)=>{
     place(Hero1, 0, 0, 0);
     board.prepared = 1;
     board.sleep = 2;
-    prom("FAL-1");
 };
 
