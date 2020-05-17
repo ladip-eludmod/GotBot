@@ -122,7 +122,7 @@ var combos = {
         "original_hp": 127,
         "leech": 42,
         "gas":42,
-        "craze":23,
+        "craze":22,
     }
 }
 
@@ -678,6 +678,12 @@ var make_que = (st, item, chr, pc) => {
 };
 
 var autoplay = (seq0, seq1, item, chr, pc, animation_interval = 200) =>{
+
+    combos["Hypnotoad+MPeggy20"]["gas"] = parseInt(document.getElementById("gas").value);
+    combos["Hypnotoad+MPeggy20"]["leech"] = parseInt(document.getElementById("leech").value);
+    combos["Hypnotoad+MPeggy20"]["craze"] = parseInt(document.getElementById("craze").value);
+    combos["Hypnotoad+MPeggy20"]["atk"] = parseInt(document.getElementById("atk").value);
+    combos["Hypnotoad+MPeggy20"]["hp"] = parseInt(document.getElementById("hp").value);
     if (check_seq(seq0) && check_seq(seq1)){
         let que0 = make_que(seq0, item, chr, pc);
         let que1 = make_que(seq1, item, chr, pc);
@@ -704,8 +710,19 @@ var rewind = ()=>{
     document.getElementById("seq1").value = "PIPCP+";
     document.getElementById("int").value = "200";
     document.getElementById("item").value = "Hypnotoad";
-    document.getElementById("char").value = "Hank";
+    document.getElementById("char").value = "MPeggy20";
+    document.getElementById("gas").value = 37;
+    document.getElementById("leech").value = 37;
+    document.getElementById("craze").value = 20;
+    document.getElementById("atk").value = 28;
+    document.getElementById("hp").value = 90;
+    combos["Hypnotoad+MPeggy20"]["gas"] = parseInt(document.getElementById("gas").value);
+    combos["Hypnotoad+MPeggy20"]["leech"] = parseInt(document.getElementById("leech").value);
+    combos["Hypnotoad+MPeggy20"]["craze"] = parseInt(document.getElementById("craze").value);
+    combos["Hypnotoad+MPeggy20"]["atk"] = parseInt(document.getElementById("atk").value);
+    combos["Hypnotoad+MPeggy20"]["hp"] = parseInt(document.getElementById("hp").value);
 }
+
 
 var init = (Hero0, Hero1)=>{
     let output = "<table>";
