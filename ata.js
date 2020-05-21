@@ -1,13 +1,15 @@
-
-
 var board = {
     whos_turn: 0,// 0 or 1
     prepared: 0,
     last_update : -1,
-    sleep :2,
+    sleep :3,
+    anim_int : 5,
     decks: [[], []],
+    skill_arr: [[], []],
+    stat_arr: [[], []],
 };
 
+var animations = [];
 
 var PCs = {
     "FAL":{
@@ -33,10 +35,22 @@ var HLeela = {
     "original_atk": 0,
     "original_hp": 95,
     "shield": 5,
-    "cheerall": 3,
+    "cheerall": 4,
 };
 
 var items = {
+    "Armed": {
+        "name": "Armed",
+        "original_atk":12,
+        "original_hp": 54,
+    },
+    "Langley": {
+        "name": "Langley",
+        "original_atk": 12,
+        "original_hp": 60,
+        "hijack": 7,
+        "craze": 6, 
+    },
     "Monkey": {
         "name": "Monkey",
         "original_atk": 20,
@@ -72,7 +86,13 @@ var items = {
         "payback": 16,
         "healall": 8,
         "gas": 17,
-    }
+    },
+    "Zapp": {
+        "name": "Zapp",
+        "original_atk": 14,
+        "hijack": 11,
+        "original_hp": 77,
+    },
 }
 
 var combos = {
@@ -116,6 +136,14 @@ var combos = {
         "gas":35,
         "craze":20,
     },
+    "Langley+Peggy":{
+        "name": "Ciggy",
+        "original_atk": 24,
+        "original_hp": 109,
+        "leech": 35,
+        "gas":35,
+        "craze":20,
+    },
     "Hypnotoad+MPeggy20":{
         "name": "Ciggy",
         "original_atk": 29,
@@ -123,6 +151,22 @@ var combos = {
         "leech": 42,
         "gas":42,
         "craze":22,
+    },
+    "Zapp+Armed1":{
+        "name": "Unsharp",
+        "original_atk": 29,
+        "punch": 33,
+        "jab": 36,
+        "craze": 17,
+        "original_hp": 148,
+    },
+    "Zapp+Armed":{
+        "name": "Unsharp",
+        "original_atk": 32,
+        "punch": 29,
+        "jab": 32,
+        "craze": 15,
+        "original_hp": 148,
     }
 }
 
@@ -137,90 +181,522 @@ var find_slot = (who, position)=>{
     return found;
 };
 
-var motivate = (who, position, val, where)=>{
-    let opp_slot = find_slot(1 - who, position);
-    let tar_slot = find_slot(who, position);
-    let tar_card = board.decks[who][tar_slot];
-    if (opp_slot >= 0){
-        let opp_card = board.decks[1 - who][opp_slot];
-        if ("hijack" in opp_card){
-            let hijacked = Math.min(val, get_val(opp_card, "hijack"));
-            opp_card["hijacked_from_" + where] = hijacked;
-            tar_card["motivated_from_" + where] = val - hijacked;
-            tar_card["atk"] += (val - hijacked);
+var anime_queue = [];
+
+var play_anime = ()=>{
+    if (anime_queue.length == 0) return;
+    let head = anime_queue.shift();
+    setTimeout(
+        ()=>{
+            head[1]();
+            play_anime();
+        },
+        head[0]
+    );
+}
+
+var trigger_anime = (who, pos, effect, tar_who, tar_pos, tar_effect, eff_val, old_val, new_val) => {
+    let anim_int = board.anim_int;
+    let sknode = document.getElementById(`slot-${who}-${pos}-sk${board.skill_arr[who][pos].indexOf(effect)+1}`);
+    let tarnode = null;
+    if (tar_effect == "atk"){
+        tarnode = document.getElementById(`slot-${tar_who}-${tar_pos}-atk`);
+        if (tarnode == null) return;
+        let clr = "blue";
+        if (old_val > new_val) clr = "red";
+        anime_queue.push([0, ()=>{
+            tarnode.innerHTML = `<img style="width:16px;height:15px" src="img/skill_atk.png" alt="atk"></img><span style="color:${clr}"><img style="width:16px;height:15px" src="img/${clr}.png"></img>`;
+        }]);
+        anime_queue.push([anim_int*100, ()=>{
+            tarnode.innerHTML = `<img style="width:16px;height:15px" src="img/skill_atk.png" alt="atk"></img>${new_val}`;
+        }]);
+    }
+    if (tar_effect == "hp"){
+        tarnode = document.getElementById(`slot-${tar_who}-${tar_pos}-hp`);
+        if (tarnode == null) return;
+        let clr = "blue";
+        if (old_val > new_val) clr = "red";
+        anime_queue.push([0, ()=>{
+            tarnode.innerHTML = `<img style="width:16px;height:15px" src="img/skill_hp.png" alt="hp"></img><span style="color:${clr}"><img style="width:16px;height:15px" src="img/${clr}.png"></img>`;
+        }]);
+        anime_queue.push([anim_int*100, ()=>{
+            tarnode.innerHTML = `<img style="width:16px;height:15px" src="img/skill_hp.png" alt="hp"></img>${new_val}`;
+        }]);
+    }
+    if (sknode == null) {
+        return;
+    }
+    if (!board.stat_arr[tar_who][tar_pos].includes(tar_effect)){
+        board.stat_arr[tar_who][tar_pos].push(tar_effect);
+    }
+    tarnode = document.getElementById(`slot-${tar_who}-${tar_pos}-st${board.stat_arr[tar_who][tar_pos].indexOf(tar_effect)+1}`);
+    if (tarnode == null) return;
+    
+    let tp = parseInt(sknode.parentElement.style.top.slice(0,-2));
+    let lp = parseInt(sknode.parentElement.style.left.slice(0,-2));
+    let top0 = parseInt(sknode.style.top.slice(0,-2));
+    let left0 = parseInt(sknode.style.left.slice(0,-2));
+    let tp1 = parseInt(tarnode.parentElement.style.top.slice(0,-2));
+    let lp1 = parseInt(tarnode.parentElement.style.left.slice(0,-2));
+    let top1 = parseInt(tarnode.style.top.slice(0,-2));
+    let left1 = parseInt(tarnode.style.left.slice(0,-2));
+    let t0 = top0+tp;
+    let l0 = left0+lp;
+    let t1 = top1+tp1;
+    let l1 = left1+lp1;
+
+    let w0 = parseInt(sknode.style.width.slice(0,-2));
+    let h0 = parseInt(sknode.style.height.slice(0,-2));
+
+    anime_queue.push([0, ()=>{ 
+        sknode.parentElement.parentElement.appendChild(sknode);
+        sknode.style.top = (tp+top0)+"px";
+        sknode.style.left = (lp+left0)+"px";
+        sknode.innerHTML = `<img style="width:16px;height:15px" src="img/skill_${effect}.png" alt="${effect}"></img>`;
+        tarnode.style["background-color"] = "pink";
+        tarnode.innerHTML = `<img style="width:16px;height:15px" src="img/effect_${tar_effect}.png" alt="${tar_effect}"></img>${new_val}`;
+    }]);
+    let N = 100;
+    for (let i = 0; i < N; i++){
+        anime_queue.push([anim_int, ()=>{
+            sknode.style.transform = `scale(${(N+1*i)/N})`;
+            sknode.style.top = (t0 * (N-i) + t1 * i)/N + "px";
+            sknode.style.left = (l0 * (N-i) + l1 * i)/N + "px";
+            sknode.style.width = (w0 * (N-i) + 2*w0 * i)/N + "px";
+            sknode.style.height = (h0 * (N-i) + 2*h0 * i)/N + "px";
         }
-        else{
-            tar_card["motivated_from_" + where] = val;
-            tar_card["atk"] += (val);
-        }
+        ]);
+    }
+    anime_queue.push([anim_int, ()=>{
+        document.getElementById(`slot-${who}-${pos}`).appendChild(sknode);
+        sknode.style.top = top0 + "px";
+        sknode.style.left = left0 + "px";
+        sknode.style.width = w0 + "px";
+        sknode.style.height = h0 + "px";
+        sknode.style.transform = "scale(1)";
+        sknode.innerHTML = `<img style="width:16px;height:15px" src="img/skill_${effect}.png" alt="${effect}"></img>${eff_val}`;
+        tarnode.style["background-color"] = "white";
+    }
+    ]);
+};
+
+var trigger = (who, pos, effect, change_foo)=>{
+    let slot = find_slot(who, pos);
+    if (slot == -1) return [0,0];
+    let hp = board.decks[who][slot]["hp"];
+    if ((hp > -0.1) && (hp < 0.1)) return [0,0];
+
+    let num_old = 0;
+
+    if (effect in board.decks[who][slot]){
+        num_old = board.decks[who][slot][effect];
+        board.decks[who][slot][effect]= change_foo(board.decks[who][slot][effect]);
     }
     else{
-        tar_card["motivated_from_" + where] = val;
-        tar_card["atk"] += (val);
+        board.decks[who][slot][effect] = change_foo(0);
     }
-};
+    let diff = board.decks[who][slot][effect] - num_old;
+    if ((!force_triggers.includes(effect)) && (diff > -0.1) && (diff < 0.1)) return [num_old,num_old];
 
-var cripple = (card, val)=>{
-    if (!("crippled" in card)) card["crippled"] = 0;
-    card["crippled"] += val;
-    if (card["crippled"] > card["atk"]){
-        card["crippled"] = card["atk"];
+    for (let e of trigger_dict[effect](who, pos, num_old, board.decks[who][slot][effect])){
+        if (e[1] < 0) continue;
+        let pr = trigger(e[0], e[1], e[2], e[3]);
+        trigger_anime(who, pos, effect, e[0], e[1], e[2], board.decks[who][slot][effect], pr[0], pr[1]);
     }
+    return [num_old, diff + num_old];
 };
 
-var shield = (card, val)=>{
-    console.log(card);
-    console.log("SHIELD0", val, card["shielded"]);
-    if (!("shielded" in card)) card["shielded"] = 0;
-    console.log("SHIELD", val, card["shielded"]);
-    card["shielded"] += val;
+var force_triggers = ["special", "name", "motivate", "cheerall", "craze", "cripple", "crippleall", "leech", "gas", "payback", "punch", "bomb", "healall", "heal", "cheer", "shield", "shieldall", "jab", "sturdy"];
+
+
+var trigger_dict = {
+    "motivate": (who, pos, num_old, num_new) =>{ 
+        return [
+            [who, pos - 1,  "motivated_from_right", (x)=>{return num_new;}],
+            [who, pos + 1,  "motivated_from_left", (x)=>{return num_new;}],
+        ]; 
+    },
+    "motivated_from_right": (who, pos, num_old, num_new) =>{
+        if (num_new < num_old) return [
+            [who, pos, "atk", (x)=>{return x + num_new-num_old;}]
+        ];
+        return [
+            [1-who, pos, "hijacked_from_right", (x)=>{
+                let slot = find_slot(1-who, pos);
+                let hij = get_val(board.decks[1-who][slot], "hijack");
+                return Math.min(hij, num_new);
+            }],
+            [who, pos, "atk", (x)=>{return x + num_new-num_old;}]
+        ];
+    },
+    "hijacked_from_right": (who, pos, num_old, num_new) =>{
+        return [
+            [1-who, pos, "motivated_from_right", (x)=>{return x-num_new;}],
+            [who, pos, "atk", (x)=>{return x + num_new-num_old;}]
+        ];
+    },
+    "motivated_from_left": (who, pos, num_old, num_new) =>{
+        if (num_new < num_old) return [
+            [who, pos, "atk", (x)=>{return x + num_new-num_old;}]
+        ];
+        return [
+            [1-who, pos, "hijacked_from_left", (x)=>{
+                let slot = find_slot(1-who, pos);
+                let hij = get_val(board.decks[1-who][slot], "hijack");
+                return Math.min(hij, num_new);
+            }],
+            [who, pos, "atk", (x)=>{return x + num_new-num_old;}]
+        ];
+    },
+    "hijacked_from_left": (who, pos, num_old, num_new) =>{
+        return [
+            [1-who, pos, "motivated_from_left", (x)=>{return x-num_new;}],
+            [who, pos, "atk", (x)=>{return x + num_new-num_old;}]
+        ];
+    },
+    "atk": (who, pos, num_old, num_new) =>{return [];},
+    "hp": (who, pos, num_old, num_new) =>{
+        if (num_new > 0.1) return [];
+        let arr = [];
+
+        let left_slot = find_slot(who, pos-1);
+        if (left_slot != -1){
+            let left_card = board.decks[who][left_slot];
+            if ("motivated_from_right" in left_card) {
+                left_card["atk"] -= left_card["motivated_from_right"];
+                left_card["motivated_from_right"] = 0;
+            }
+        }
+        let left_opp_slot = find_slot(1-who, pos-1);
+        if (left_opp_slot != -1){
+            let left_card = board.decks[1-who][left_opp_slot];
+            if ("hijacked_from_right" in left_card) {
+                left_card["atk"] -= left_card["hijacked_from_right"];
+                left_card["hijacked_from_right"] = 0;
+            }
+        }
+        let right_slot = find_slot(who, pos+1);
+        if (right_slot != -1){
+            let right_card = board.decks[who][right_slot];
+            if ("motivated_from_left" in right_card) {
+                right_card["atk"] -= right_card["motivated_from_left"];
+                right_card["motivated_from_left"] = 0;
+            }
+        }
+        let right_opp_slot = find_slot(1-who, pos+1);
+        if (right_opp_slot != -1){
+            let right_card = board.decks[1-who][right_opp_slot];
+            if ("hijacked_from_left" in right_card) {
+                right_card["atk"] -= right_card["hijacked_from_left"];
+                right_card["hijacked_from_left"] = 0;
+            }
+        }
+
+        if ((num_new < -0.1) && (pos > 0)){
+            return [[
+                who, 0, "hp", (x)=>{ return x + num_new;}
+            ]];
+        }
+        return [];
+    },
+    "cheerall": (who, pos, num_old, num_new) =>{
+        let arr = [];
+        for (let cd of board.decks[who]){
+            if ((cd["sleep"] < 0.1) && (cd["pos"] > pos)){
+                arr.push([who, cd["pos"], "motivated_from_cheer", (x)=>{ return x+num_new;}]);
+            }
+        }
+        return arr;
+    },
+    "hijacked_from_cheer": (who, pos, num_old, num_new) =>{
+        return [
+            [1-who, pos, "motivated_from_cheer", (x)=>{return x-(num_new-num_old);}],
+            [who, pos, "atk", (x)=>{return x + num_new-num_old;}]
+        ];
+    },
+    "motivated_from_cheer": (who, pos, num_old, num_new) =>{
+        if (num_new < num_old) return [
+            [who, pos, "atk", (x)=>{return x + num_new-num_old;}]
+        ];
+        return [
+            [1-who, pos, "hijacked_from_cheer", (x)=>{
+                let slot = find_slot(1-who, pos);
+                let hij = get_val(board.decks[1-who][slot], "hijack");
+                return Math.min(hij, num_new);
+            }],
+            [who, pos, "atk", (x)=>{return x + num_new-num_old;}]
+        ];
+    },
+    "craze": (who, pos, num_old, num_new) =>{
+        return [[who, pos, "motivated_from_crazed", (x)=>{return x + num_new}]];
+    },
+    "hijacked_from_crazed": (who, pos, num_old, num_new) =>{
+        return [
+            [1-who, pos, "motivated_from_crazed", (x)=>{return x-(num_new-num_old);}],
+            [who, pos, "atk", (x)=>{return x + num_new-num_old;}]
+        ];
+    },
+    "motivated_from_crazed": (who, pos, num_old, num_new) =>{
+        if (num_new < num_old) return [
+            [who, pos, "atk", (x)=>{return x + num_new-num_old;}]
+        ];
+        return [
+            [1-who, pos, "hijacked_from_crazed", (x)=>{
+                let slot = find_slot(1-who, pos);
+                let hij = get_val(board.decks[1-who][slot], "hijack");
+                return Math.min(hij, num_new-num_old);
+            }],
+            [who, pos, "atk", (x)=>{return x + num_new-num_old;}]
+        ];
+    },
+    "crippleall": (who, pos, num_old, num_new) =>{
+        let arr = [];
+        for (let cd of board.decks[1-who]){
+            let atk = cd["atk"];
+            if ((cd["hp"] > 0.1)){
+                arr.push(
+                    [1-who, cd["pos"], "crippled", (x)=>{
+                        return x+Math.min(num_new, atk);
+                    }],
+                );
+            }
+        }
+        return arr;
+    },
+    "crippled": (who, pos, num_old, num_new) =>{
+        return [
+            [who, pos, "atk", (x)=>{
+                console.log("Cripple", x, x-(num_new-num_old));
+                return x - (num_new-num_old);
+            }],
+        ];
+    },
+    "leech": (who, pos, num_old, num_new) =>{
+        return [
+            [who, pos, "hp", (x)=>{
+                let slot = find_slot(who, pos);
+                return Math.min(board.decks[who][slot]["original_hp"], x + num_new);
+            }]
+        ];
+    },
+    "shieldall": (who, pos, num_old, num_new) =>{
+        let arr = [];
+        for (let cd of board.decks[who]){
+            if ( (cd["pos"] != pos) && (cd["pos"] > 0.1)){
+                arr.push([who, cd["pos"], "shielded", (x)=>{ return x+num_new;}]);
+            }
+        }
+        return arr;
+    },
+    "shielded": (who, pos, num_old, num_new) =>{ return []; },
+    "shield": (who, pos, num_old, num_new) =>{ 
+        let candid = [];
+        for (let ocd of board.decks[who]){
+            if ((ocd["pos"] != pos) && (ocd["pos"] > 0) && (ocd["hp"]>0.1))
+                candid.push(ocd["pos"]);
+        }
+        if (candid.length > 0)
+            return [[who, candid[Math.floor(Math.random() * candid.length)], "shielded", (x)=>{return x+num_new;}]];
+        else
+            return []; 
+    },
+    "healall": (who, pos, num_old, num_new) =>{
+        let arr = [];
+        for (let cd of board.decks[who]){
+            let ohp = cd["original_hp"];
+            if ( (cd["pos"] != pos) && (cd["pos"] > 0.1) && (cd["hp"] + 0.1 < ohp)){
+                arr.push([who, cd["pos"], "hp", (x)=>{ return Math.min(x+num_new, ohp);}]);
+            }
+        }
+        return arr;
+    },
+    "heal": (who, pos, num_old, num_new) =>{ 
+        let candid = [];
+        for (let ocd of board.decks[who]){
+            let ohp = ocd["original_hp"];
+            if ((ocd["pos"] != pos) && (ocd["pos"] > 0.1) && (ocd["hp"]>0.1) && (ocd["hp"]+0.1 < ohp))
+                candid.push(ocd);
+        }
+        if (candid.length > 0){
+            let ocd = candid[Math.floor(Math.random() * candid.length)];
+            let ohp = ocd["original_hp"];
+            return [[who, ocd["pos"], "hp", (x)=>{return Math.min(x+num_new, ohp);}]];
+        }
+        else
+            return []; 
+    },
+    "cripple": (who, pos, num_old, num_new) =>{ 
+        let candid = [];
+        for (let ocd of board.decks[1-who]){
+            if ((ocd["pos"] != pos) && (ocd["pos"] > 0.1) && (ocd["hp"]>0.1) && (ocd["sleep"] > 1.1))
+                candid.push(ocd);
+        }
+        if (candid.length > 0){
+            let ocd = candid[Math.floor(Math.random() * candid.length)];
+            let atk = ocd["atk"];
+            return [[1-who, ocd["pos"], "crippled", (x)=>{return x+Math.min(num_new, atk);}]];
+        }else
+            return []; 
+    },
+    "punch": (who, pos, num_old, num_new) =>{ 
+        return [];
+        let candid = [];
+        for (let ocd of board.decks[1-who]){
+            if ((ocd["pos"] != pos) && (ocd["pos"] > 0.1) && (ocd["hp"]>0.1))
+                candid.push(ocd);
+        }
+        if (candid.length > 0){
+            let opos = candid[Math.floor(Math.random() * candid.length)];
+            return [[1-who, opos, "special", (x)=>{return num_new;}]];
+        }else
+            return []; 
+    },
+    "jab": (who, pos, num_old, num_new) =>{ 
+        let opp_slot = find_slot(1-who, pos);
+        if (opp_slot < 0) return [];
+        let opp_card = board.decks[1-who][opp_slot];
+        if (opp_card["hp"] < 0.1) return [];
+        let arr = [];
+        let val = num_new;
+        if ("sturdyd" in opp_card){
+            arr.push([1-who, pos, "sturdyd", (x)=>{return Math.max(0, x-val);}]);
+            val -= Math.min(val, opp_card["sturdyd"]);
+        }
+        arr.push(
+            [1-who, pos, "shielded", (x)=>{return Math.max(0, x-val);}]
+        );
+        return arr;
+    },
+    "sturdy": (who, pos, num_old, num_new) =>{ 
+        return [[
+            who, pos, "sturdyd", (x)=>{return num_new}
+        ]];
+    },
+    "sturdyd": (who, pos, num_old, num_new) =>{ return [];},
+    "gassed": (who, pos, num_old, num_new) =>{ return [];},
+    "gas": (who, pos, num_old, num_new) =>{
+        return [[1-who, pos, "gassed", (x)=>{
+            return Math.max(x, num_new);
+        }]];
+    },
+    "payback": (who, pos, num_old, num_new) =>{
+        let slot = find_slot(1-who, pos);
+        let card = board.decks[1-who][slot];
+        let shielded = get_val(card, "shielded");
+        if (num_new > shielded){
+            return [
+                [1-who, pos, "shielded", (x)=>{ return 0;}],
+                [1-who, pos, "hp", (x)=>{return x-(num_new-shielded);}]
+            ];
+        }
+        else{
+            return [[1-who, pos, "shielded", (x)=>{return x-num_new;}]];
+        }
+    },
+    "bomb": (who, pos, num_old, num_new) =>{
+        return [
+            [who, pos - 1, "special", (x)=>{return num_new}],
+            [who, pos + 1, "special", (x)=>{return num_new}],
+        ];
+    },
+    "special": (who, pos, num_old, num_new) =>{
+        let bg = Math.max(get_pos_val(who, pos - 1, "bodyguard"), get_pos_val(who, pos, "bodyguard"), get_pos_val(who, pos + 1, "bodyguard"));
+        let shielded = get_pos_val(who, pos, "shielded");
+        if (shielded > num_new){
+            return [[
+                who, pos, "shielded", (x) => {return x - num_new;}
+            ]];
+        }
+        else{
+            let arr = [];
+            arr.push([who, pos, "shielded", (x)=>{return 0;}]);
+            let val  = max(0, num_new - shielded - bg);
+            arr.push([who, pos, "hp", (x)=>{return x - val;}]);
+            return arr;
+        }
+    },
+    "name": (who, pos, num_old, num_new) =>{
+        let opp_slot = find_slot(1-who, pos);
+        let slot = find_slot(who, pos);
+        let card = board.decks[who][pos];
+        let atk = card["atk"];
+        if (opp_slot === -1){
+            return [[1-who, 0, "hp", (x)=>{return x-atk;}]];
+        }
+        else{
+            let arr = [];
+            let opp_card = board.decks[1-who][opp_slot];
+            if ("bomb" in card){
+                arr.push([who, pos, "bomb", (x)=>{return x;}]);
+            }
+            if ("payback" in opp_card){
+                arr.push([1-who, pos, "payback", (x)=>{return x;}]);
+            }
+            let sturdyd = get_val(opp_card, "sturdyd");
+            atk -= sturdyd;
+            let shielded = get_val(opp_card, "shielded");
+
+            if (atk > shielded){
+                arr.push([1-who, pos, "shielded", (x)=>{return 0;}]);
+                arr.push([1-who, pos, "hp", (x)=>{return x-(atk-shielded);}]);
+            }
+            else{
+                arr.push([1-who, pos, "shielded", (x)=>{return x-atk;}]);
+            }
+            if ("leech" in card){
+                arr.push([who, pos, "leech", (x)=>{return x;}]);
+            }
+            if ("gas" in card){
+                arr.push([who, pos, "gas", (x)=>{return x;}]);
+            }
+            if ("craze" in card){
+                arr.push([who, pos, "craze", (x)=>{return x;}]);
+            }
+            return arr;
+        }
+    },
 };
 
-var print_card = (cd, color)=>{
-    cd["displayed_atk"] = cd["atk"] - get_val(cd, "crippled") + get_val(cd, "hijacked_from_left") + get_val(cd, "hijacked_from_right") + get_val(cd, "hijacked_from_craze") + get_val(cd, "hijacked_from_cheer");
-    let output = `<table style='border:1px black solid;' bgcolor='${color}'>`;
-    let skillset = ["motivate", "shield", "crippleall", "shieldall", "cheerall", "cheer", "leech", "gas", "craze", "sturdy", "payback", "hijack"];
+
+var print_card = (who, pos, color)=>{
+    let skillset = ["motivate", "shield", "crippleall", "shieldall", "cheerall", "cheer", "leech", "gas", "craze", "sturdy", "payback", "hijack", "jab", "bomb", "punch"];
     let effectset = ["gassed", "crippled", "motivated_from_left", "motivated_from_right", "shielded", "gased", "crazed", "hijacked_from_left", "hijacked_from_right", "hijacked_from_craze", "hijacked_from_cheer"];
-    output += ("<tr ><td style='border:1px black solid;'>" + (`<span style="width:30px;height:15px">Name</span></td><td> ${cd["name"]}`) + "</td></tr>");
-    for (let x in cd){
-        if (skillset.includes(x)){
-            output += ("<tr ><td style='border:1px black solid;'>" + (`<img style="width:16px;height:15px" src="img/skill_${x}.png" alt="${x}"></img></td><td> ${cd[x]}`) + "</td></tr>");
-        }
-        else if (["hp", "displayed_atk"].includes(x)){
-            if (cd["pos"] == 0){
-                if (x == "displayed_atk")
-                    continue;
-            }
-            let old_val = get_val(cd, "old_"+x);
-            let changes = cd[x]-old_val;
-            if (color != "white"){
-            if (changes > 0.1){
-                output += ("<tr ><td style='border:1px black solid;'>" + (`<img style="width:16px;height:15px" src="img/skill_${x}.png" alt="${x}"></img></td><td> ${cd[x]}=${old_val}<span style="color:green">+${changes}</span>`) + "</td></tr>");
-            }
-            else if (changes < -0.1){
-                output += ("<tr ><td style='border:1px black solid;'>" + (`<img style="width:16px;height:15px" src="img/skill_${x}.png" alt="${x}"></img></td><td> ${cd[x]}=${old_val}<span style="color:red">${changes}</span>`) + "</td></tr>");
-            }
-            else{
-                output += ("<tr ><td style='border:1px black solid;'>" + (`<img style="width:16px;height:15px" src="img/skill_${x}.png" alt="${x}"></img></td><td> ${old_val}<span style="color:yellow">-</span>`) + "</td></tr>");
-            }
-            }
-            else{
-                output += ("<tr ><td style='border:1px black solid;'>" + (`<img style="width:16px;height:15px" src="img/skill_${x}.png" alt="${x}"></img></td><td> ${cd[x]}</span>`) + "</td></tr>");
-            }
-        }
+
+    let arr = [];
+
+    let slot = find_slot(who, pos);
+    let cd = board.decks[who][slot];
+    if (!("name" in cd)) return;
+    arr.push([`slot-${who}-${pos}-name`, `<div>${cd["name"]}</div>`]);
+    if (pos > 0.1){
+        arr.push([`slot-${who}-${pos}-atk`, `<img style="width:16px;height:15px" src="img/skill_atk.png" alt="atk"></img>${cd["atk"]}`]);
     }
-    if (cd["pos"] == 0) return output + "</table>";
-    output += "<tr><td>Status</td></tr>";
+    arr.push([`slot-${who}-${pos}-hp`, `<img style="width:16px;height:15px" src="img/skill_hp.png" alt="hp"></img>${cd["hp"]}`]);
     for (let x in cd){
         if ((cd[x] > -0.1) && (cd[x] < 0.1)) continue;
-        if (x.includes("motivated_from") || x.includes("hijacked_from"))
-            output += ("<tr ><td style='border:1px black solid;'>" + (`<img style="width:32px;height:15px" src="img/effect_${x}.png" alt="${x}"></img></td><td> ${cd[x]}`) + "</td></tr>");
-        else if (effectset.includes(x)){
-            output += ("<tr ><td style='border:1px black solid;'>" + (`<img style="width:16px;height:15px" src="img/effect_${x}.png" alt="${x}"></img></td><td> ${cd[x]}`) + "</td></tr>");
+        if (skillset.includes(x)){
+            if (!board.skill_arr[who][pos].includes(x))
+                board.skill_arr[who][pos].push(x);
+            arr.push([`slot-${who}-${pos}-sk${board.skill_arr[who][pos].indexOf(x)+1}`, `<img style="width:16px;height:15px" src="img/skill_${x}.png" alt="${x}"></img>${cd[x]}`]);
         }
     }
-    output += "</table>";
-    return output;
+    for (let x in cd){
+        if ((cd[x] > -0.1) && (cd[x] < 0.1)) continue;
+        if (effectset.includes(x)){
+            if (!board.stat_arr[who][pos].includes(x))
+                board.stat_arr[who][pos].push(x);
+            arr.push([`slot-${who}-${pos}-st${board.stat_arr[who][pos].indexOf(x)+1}`, `<img style="width:16px;height:15px" src="img/effect_${x}.png" alt="${x}"></img>${cd[x]}`]);
+        }
+    }
+    
+    document.getElementById(`slot-${who}-${pos}`).style["background-color"] = color;
+    document.getElementById(`slot-${who}-${pos}`).style["display"] = "block";
+    for (let pr of arr){
+        let node = document.getElementById(pr[0]);
+
+        if (node != null)
+            node.innerHTML = pr[1];
+    }
 }
 
 var get_val = (cd, key)=>{
@@ -228,107 +704,16 @@ var get_val = (cd, key)=>{
     else return 0;
 };
 
-var kill = (who, pos)=>{
-    let left_slot = find_slot(who, pos-1);
-    if (left_slot != -1){
-        let left_card = board.decks[who][left_slot];
-        if ("motivated_from_right" in left_card) {
-            left_card["atk"] -= left_card["motivated_from_right"];
-            left_card["motivated_from_right"] = 0;
-            let opp_slot = find_slot(1-who, pos - 1);
-            if (opp_slot != -1)
-                board.decks[1-who][opp_slot]["hijacked_from_right"] = 0;
-        }
-    }
-    let right_slot = find_slot(who, pos+1);
-    if (right_slot != -1){
-        let right_card = board.decks[who][right_slot];
-        if ("motivated_from_left" in right_card) {
-            right_card["atk"] -= right_card["motivated_from_left"];
-            right_card["motivated_from_left"] = 0;
-            let opp_slot = find_slot(1-who, pos + 1);
-            if (opp_slot != -1)
-                board.decks[1-who][opp_slot]["hijacked_from_left"] = 0;
-        }
-    }
-    let slot = find_slot(who, pos);
-    board.decks[who][slot]["hp"] = 0;
-}
 
-var payback = (who, val, pos) => {
+var get_pos_val = (who, pos, key)=>{
     let slot = find_slot(who, pos);
-    let card = board.decks[who][slot];
-    if (!("shielded" in card)) card["shielded"] = 0;
-    let shielded = get_val(card, "shielded");
-    if (val > shielded){
-        if ("shielded" in card) card["shielded"] = 0;
-        val -= shielded;
-        if (card["hp"] < val+0.1){
-            kill(who, pos);
-            val -= card["hp"];
-            board.decks[who][0]["hp"] -= val;
-        }
-        else{
-            card["hp"] -= val;
-        }
-    }
-    else{
-        card["shielded"] -= val;
-    }
-    return payback;
+    if (slot == -1) return 0;
+    let cd = board.decks[who][slot];
+    if (key in cd) return cd[key];
+    else return 0;
 };
 
-var physical = (who, val, pos) => {
-    let slot = find_slot(who, pos);
-    let payback = 0;
-    if (slot === -1){
-        board.decks[who][0]["hp"] -= val;
-    }
-    else{
-        let card = board.decks[who][slot];
-        payback = get_val(card, "payback");
-        let sturdy = get_val(card, "sturdy");
-        val -= sturdy;
-        if (val < 0.1) return;
-        let shielded = get_val(card, "shielded");
-        if (!("shielded" in card)) card["shielded"] = 0;
-        if (val > shielded){
-            if ("shielded" in card) card["shielded"] = 0;
-            val -= shielded;
-            if (card["hp"] < val+0.1){
-                kill(who, pos);
-                val -= card["hp"];
-                board.decks[who][0]["hp"] -= val;
-            }
-            else{
-                card["hp"] -= val;
-            }
-        }
-        else{
-            console.log("YYY",val);
-            card["shielded"] -= val;
-        }
-    }
-    return payback;
-};
 
-var leech = (who, val, pos) => {
-    let opp_slot = find_slot(1-who, pos);
-    if (opp_slot < 0) return;
-    if (board.decks[1-who][opp_slot]["hp"] < 0.1) return;
-
-    let slot = find_slot(who, pos);
-    board.decks[who][slot]["hp"] += val;
-    board.decks[who][slot]["hp"] = Math.min(board.decks[who][slot]["hp"], board.decks[who][slot]["original_hp"]);
-};
-
-var gas = (who, val, pos) => {
-    let opp_slot = find_slot(who, pos);
-    if (opp_slot < 0) return;
-    if (board.decks[who][opp_slot]["hp"] < 0.1) return;
-    let opp_card = board.decks[who][opp_slot];
-    opp_card["gased"] = Math.max(val, get_val(opp_card, "gased"));
-};
 
 
 var animate = (who, pos, start, color) =>{
@@ -337,7 +722,7 @@ var animate = (who, pos, start, color) =>{
     let this_card = board.decks[who][slot];
 
     setTimeout(()=>{
-        document.getElementById(`slot-${who}-${pos}`).innerHTML = print_card(this_card, color);
+        print_card(who, pos, color);
     }, start);
 };
 
@@ -352,6 +737,25 @@ var check_through = (who, atk, pos) =>{
 var place = (card, position, sleep = 1, animation_interval = 1000) => {
     let found = find_slot(board.whos_turn, position);
     let animation_time = 0.0;
+    for (let cd of board.decks[1-board.whos_turn]){
+        cd["old_hp"] = cd["hp"];
+        cd["old_atk"] = cd["atk"];
+        cd["atk"] += get_val(cd, "crippled");
+        //board.stat_arr[1-board.whos_turn][cd["pos"]] = [];
+        //board.skill_arr[1-board.whos_turn][cd["pos"]] = [];
+        if ("crippled" in cd) cd["crippled"] = 0;
+        print_card(1-board.whos_turn, cd["pos"], "white");
+    }
+    for (let cd of board.decks[board.whos_turn]){
+        if ("shielded" in cd) cd["shielded"] = 0;
+        cd["old_hp"] = cd["hp"];
+        cd["old_atk"] = cd["atk"];
+        cd["atk"] -= get_val(cd, "motivated_from_cheer");
+        cd["motivated_from_cheer"] = 0;
+        //board.stat_arr[board.whos_turn][cd["pos"]] = [];
+        //board.skill_arr[board.whos_turn][cd["pos"]] = [];
+        print_card(board.whos_turn, cd["pos"], "white");
+    }
     if (found === -1){
         let card_copy = Object.assign({}, card);
         let this_slot = board.decks[board.whos_turn].length;
@@ -361,21 +765,8 @@ var place = (card, position, sleep = 1, animation_interval = 1000) => {
         this_card["sleep"] = sleep;
         this_card["atk"] = this_card["original_atk"];
         this_card["hp"] = this_card["original_hp"];
-        this_card["displayed_atk"] = this_card["atk"];
         this_card["shielded"] = 0;
-        let left_slot = find_slot(board.whos_turn, position - 1);
-        if (left_slot >= 0) {
-            let left_card = board.decks[board.whos_turn][left_slot];
-            if ("motivate" in card){
-                motivate(board.whos_turn, position - 1, card["motivate"], "right");
-            }
-            if ("motivate" in left_card){
-                motivate(board.whos_turn, position, left_card["motivate"], "left");
-            }
-        }
-        animate(board.whos_turn, position, animation_time, "orange");
-        animation_time += animation_interval;
-        animate(board.whos_turn, position, animation_time, "white");
+        trigger(board.whos_turn, position, "motivate", (x)=>{return x});
 
     }
     else{
@@ -396,89 +787,72 @@ var place = (card, position, sleep = 1, animation_interval = 1000) => {
         old_card["atk"] = old_card["original_atk"] + atk_change;
         old_card["hp"] = old_card["original_hp"] + hp_change;
         old_card["sleep"] = 0;
-        animate(board.whos_turn, position, animation_time, "orange");
-        animation_time += animation_interval;
-        animate(board.whos_turn, position, animation_time, "white");
     }
+    board.stat_arr[board.whos_turn][position] = [];
+    board.skill_arr[board.whos_turn][position] = [];
+    print_card(board.whos_turn,position,"orange");
     board.decks[board.whos_turn].sort((k)=>{return k["pos"]});
+    new_card = board.decks[board.whos_turn][find_slot(board.whos_turn, position)];
+    new_card["old_atk"] = new_card["atk"];
+    new_card["old_hp"] = new_card["hp"];
 
 
 
-    for (let cd of board.decks[1-board.whos_turn]){
-        if ("crippled" in cd) cd["crippled"] = 0;
-        animate(1-board.whos_turn, cd["pos"], animation_time, "white");
-        cd["atk"] -= get_val(cd, "hijacked_from_cheer");
-        cd["hijacked_from_cheer"] = 0;
-    }
     for (let cd of board.decks[board.whos_turn]){
-        if ("shielded" in cd) cd["shielded"] = 0;
-        cd["old_hp"] = cd["hp"];
-        cd["old_displayed_atk"] = cd["displayed_atk"];
-        cd["atk"] -= get_val(cd, "motivated_from_cheer");
-        cd["motivated_from_cheer"] = 0;
-        animate(board.whos_turn, cd["pos"], animation_time, "white");
-    }
-    for (let cd of board.decks[board.whos_turn]){
+        if ("motivate" in cd){
+            if (cd["pos"] != position)
+                trigger(board.whos_turn, cd["pos"], "motivate", (x)=>{return x;});
+        }
+        if ("sturdy" in cd){
+            trigger(board.whos_turn, cd["pos"], "sturdy", (x)=>{return x;});
+        }
         if (cd["sleep"] > 0.1) {
             cd["sleep"] -= 1;
             continue;
         }
         if ("crippleall" in cd){
-            for (let ocd of board.decks[1- board.whos_turn]){
-                cripple(ocd, cd["crippleall"]);
-            }
+            trigger(board.whos_turn, cd["pos"], "crippleall", (x)=>{return x;});
+        }
+        if ("cripple" in cd){
+            trigger(board.whos_turn, cd["pos"], "cripple", (x)=>{return x;});
         }
         if ("shieldall" in cd){
-            for (let ocd of board.decks[board.whos_turn]){
-                if (ocd["pos"] != cd["pos"])
-                    shield(ocd, cd["shieldall"]);
-            }
+            trigger(board.whos_turn, cd["pos"], "shieldall", (x)=>{return x;});
+        }
+        if ("shield" in cd){
+            trigger(board.whos_turn, cd["pos"], "shield", (x)=>{return x;});
         }
         if ("cheerall" in cd){
-            for (let ocd of board.decks[board.whos_turn]){
-                if ((ocd["pos"] > cd["pos"]) && (ocd["sleep"] < 0.1))
-                    motivate(board.whos_turn, ocd["pos"], cd["cheerall"], "cheer");
-            }
+            trigger(board.whos_turn, cd["pos"], "cheerall", (x)=>{return x;});
         }
-        
-        if ("shield" in cd){
-            let candid = [];
-            for (let ocd of board.decks[board.whos_turn]){
-                if ((ocd["pos"] > cd["pos"]) && (ocd["hp"]>0.1))
-                    candid.push(ocd);
-            }
-            if (candid.length > 0)
-                shield(candid[Math.floor(Math.random() * candid.length)], cd["shield"]); 
+        if ("cheer" in cd){
+            trigger(board.whos_turn, cd["pos"], "cheer", (x)=>{return x;});
+        }
+        if ("healall" in cd){
+            trigger(board.whos_turn, cd["pos"], "healall", (x)=>{return x;});
+        }
+        if ("heal" in cd){
+            trigger(board.whos_turn, cd["pos"], "heal", (x)=>{return x;});
+        }
+        if ("punch" in cd){
+            trigger(board.whos_turn, cd["pos"], "punch", (x)=>{return x;});
         }
 
 
-        let atk = cd["atk"] - get_val(cd, "crippled") + get_val(cd, "hijacked_from_left") + get_val(cd, "hijacked_from_right") + get_val(cd, "hijacked_from_craze") + get_val(cd, "hijacked_from_cheer");
+        let atk = cd["atk"];
         if (cd["pos"]>0.1){
-            if (check_through(1-board.whos_turn, atk, cd["pos"])){
-                if ("gas" in cd){
-                    gas(1-board.whos_turn, cd["gas"], cd["pos"]);
-                }
-                if ("leech" in cd){
-                    leech(board.whos_turn, cd["leech"], cd["pos"]);
-                }
-                if ("craze" in cd){
-                    motivate(board.whos_turn, cd["pos"], cd["craze"], "craze");
-                }
+            if (("jab" in cd) && (atk > 0.1)){
+                trigger(board.whos_turn, cd["pos"], "jab", (x)=>{return x;})
             }
-            let payb = physical(1-board.whos_turn, atk, cd["pos"]);
-            if (payb != undefined)
-                payback(board.whos_turn, payb, cd["pos"]);
-            animate(1-board.whos_turn, cd["pos"], animation_time, "pink");
-            animate(board.whos_turn, cd["pos"], animation_time, "pink");
-            animation_time += animation_interval;
-            cd["hijacked_from_cheer"] = 0;
-            cd["hijacked_from_craze"] = 0;
-            animate(1-board.whos_turn, cd["pos"], animation_time, "white");
-            animate(board.whos_turn, cd["pos"], animation_time, "white");
+            trigger(board.whos_turn, cd["pos"], "name", (x)=>{return x;});
         }
     }
 
     for (let cd of board.decks[board.whos_turn]){
+        cd["atk"] -= get_val(cd, "hijacked_from_cheer");
+        cd["hijacked_from_cheer"] = 0;
+        cd["atk"] -= get_val(cd, "hijacked_from_crazed");
+        cd["hijacked_from_craze"] = 0;
         cd["hp"] -= get_val(cd, "gased");
     }
     let new_deck = [];
@@ -493,23 +867,8 @@ var place = (card, position, sleep = 1, animation_interval = 1000) => {
     board.decks[board.whos_turn] = new_deck;
 
 
+    play_anime();
     board.whos_turn = 1 - board.whos_turn;
-    let output = "<table>";
-    for (let i in [0, 1]){
-        output += "<tr>";
-        for (let j = 0; j < 26; j++) {
-            let slot = find_slot(i, j);
-            if (slot == -1) output += `<td><div id="slot-${i}-${j}"></div></td>`;
-            else {
-                let div_html = print_card(board.decks[i][slot], "white");
-                output += `<td><div id='slot-${i}-${j}'>${div_html}</div></td>`;
-            }
-        }
-        output += "</tr>";
-    }
-    output += "</table>";
-    //animation_time -= animation_interval;
-    setTimeout( ()=>{document.getElementById("div-display").innerHTML = output;}, animation_time);
     animation_time += animation_interval;
     let hero_slot = find_slot(board.whos_turn, 0);
     if ((hero_slot == -1)&&(board.prepared)) {
@@ -632,23 +991,27 @@ var find_first_combo_slot = (name) =>{
         return smallest;
 };
 
-var seq_place = (que, ith, start, animation_interval) =>{
+var seq_place = (que, ith, wait_interval) =>{
     setTimeout(
         ()=>{
             if (ith>= que.length) return;
             if (board.prepared != 1) return;
+            if (anime_queue.length > 0.1) {
+                seq_place(que, ith, wait_interval);
+                return;
+            }
 
             let slot = find_first_combo_slot(que[ith]);
             let card = PCs["FAL"];
             if (que[ith] in PCs) card = PCs[que[ith]];
             if (que[ith] in items) card = items[que[ith]];
-            let sleep = place(card, slot, board.sleep, animation_interval);
-            if (board.sleep === 2) board.sleep = 1;
+            let sleep = place(card, slot, board.sleep);
+            if (board.sleep === 3) board.sleep = 1;
             if (sleep > 0){
                 document.getElementById("log").innerHTML += `<span>What card to place for Player #${board.whos_turn}?  --${que[ith]} at ${slot}.</span><br>`;
-                seq_place(que, ith+1, sleep, animation_interval);
+                seq_place(que, ith+1, wait_interval);
             }
-        }, start
+        },wait_interval 
     );
 };
 
@@ -677,13 +1040,14 @@ var make_que = (st, item, chr, pc) => {
     return [];
 };
 
-var autoplay = (seq0, seq1, item, chr, pc, animation_interval = 200) =>{
-
+var autoplay = (seq0, seq1, item, chr, pc, wait_interval = 50) =>{
+    board.anim_int = parseInt(document.getElementById("int").value);
     combos["Hypnotoad+MPeggy20"]["gas"] = parseInt(document.getElementById("gas").value);
     combos["Hypnotoad+MPeggy20"]["leech"] = parseInt(document.getElementById("leech").value);
     combos["Hypnotoad+MPeggy20"]["craze"] = parseInt(document.getElementById("craze").value);
-    combos["Hypnotoad+MPeggy20"]["atk"] = parseInt(document.getElementById("atk").value);
-    combos["Hypnotoad+MPeggy20"]["hp"] = parseInt(document.getElementById("hp").value);
+    combos["Hypnotoad+MPeggy20"]["original_atk"] = parseInt(document.getElementById("atk").value);
+    combos["Hypnotoad+MPeggy20"]["original_hp"] = parseInt(document.getElementById("hp").value);
+    combos["Langley+MPeggy20"] = Object.assign({},combos["Hypnotoad+MPeggy20"]);
     if (check_seq(seq0) && check_seq(seq1)){
         let que0 = make_que(seq0, item, chr, pc);
         let que1 = make_que(seq1, item, chr, pc);
@@ -692,25 +1056,35 @@ var autoplay = (seq0, seq1, item, chr, pc, animation_interval = 200) =>{
             merge.push(que0[i]);
             merge.push(que1[i]);
         }
-        seq_place(merge, 0, 0, animation_interval);
+        seq_place(merge, 0, wait_interval);
     }
 };
 
 
 var rewind = ()=>{
+    anime_queue = [];
     board = {
         whos_turn: 0,// 0 or 1
         prepared: 0,
         last_update : -1,
-        sleep :2,
+        sleep :3,
+        anim_int : 5,
         decks: [[], []],
+        skill_arr: [[], []],
+        stat_arr: [[], []],
     }
+    for (let i = 0; i < 26; i++) board.skill_arr[0].push([]);
+    for (let i = 0; i < 26; i++) board.skill_arr[1].push([]);
+    for (let i = 0; i < 26; i++) board.stat_arr[0].push([]);
+    for (let i = 0; i < 26; i++) board.stat_arr[1].push([]);
     init(HLeela, HConsuela);
     document.getElementById("seq0").value = "P+";
-    document.getElementById("seq1").value = "PIPCP+";
-    document.getElementById("int").value = "200";
-    document.getElementById("item").value = "Hypnotoad";
-    document.getElementById("char").value = "MPeggy20";
+    document.getElementById("seq1").value = "PCPIP+";
+    document.getElementById("int").value = "5";
+    //document.getElementById("item").value = "Hypnotoad";
+    //document.getElementById("char").value = "MPeggy20";
+    document.getElementById("item").value = "Armed";
+    document.getElementById("char").value = "Zapp";
     document.getElementById("gas").value = 37;
     document.getElementById("leech").value = 37;
     document.getElementById("craze").value = 20;
@@ -719,27 +1093,50 @@ var rewind = ()=>{
     combos["Hypnotoad+MPeggy20"]["gas"] = parseInt(document.getElementById("gas").value);
     combos["Hypnotoad+MPeggy20"]["leech"] = parseInt(document.getElementById("leech").value);
     combos["Hypnotoad+MPeggy20"]["craze"] = parseInt(document.getElementById("craze").value);
-    combos["Hypnotoad+MPeggy20"]["atk"] = parseInt(document.getElementById("atk").value);
-    combos["Hypnotoad+MPeggy20"]["hp"] = parseInt(document.getElementById("hp").value);
+    combos["Hypnotoad+MPeggy20"]["original_atk"] = parseInt(document.getElementById("atk").value);
+    combos["Hypnotoad+MPeggy20"]["original_hp"] = parseInt(document.getElementById("hp").value);
 }
 
 
 var init = (Hero0, Hero1)=>{
-    let output = "<table>";
+    let output = "";
+    let wid = 120;
+    let ht = 200;
     for (let i in [0, 1]){
-        output += "<tr>";//<td>" + (`Player ${i} HP = ${board.hps[i]}`) + "</td>";
         for (let j = 0; j < 26; j++) {
-            output += `<td><div id="slot-${i}-${j}"></div></td>`;
+            if (j == 0){
+            output += `<div id="slot-${i}-0" style="background-color:white;position:absolute;top:${i*ht*1.2}px;left:0px;height:${ht}px;width:${wid}px;">
+                <div id="slot-${i}-0-name" style="background-color:lightgrey;position:absolute;top:${0.3*ht};left:${wid/10}px;height:${ht/10}px;width:${wid*0.85}px"></div>
+                <div id="slot-${i}-0-sk1" style="position:absolute;top:${0.5*ht}px;left:${0.05*wid}px;height:${ht*0.1}px;width:${0.38*wid}px"></div>
+                <div id="slot-${i}-0-sk2" style="position:absolute;top:${0.6*ht}px;left:${0.05*wid}px;height:${ht*0.1}px;width:${0.38*wid}px"></div>
+                <div id="slot-${i}-0-sk3" style="position:absolute;top:${0.7*ht}px;left:${0.05*wid}px;height:${ht*0.1}px;width:${0.38*wid}px"></div>
+                <div id="slot-${i}-0-hp" style="position:absolute;top:${0.9*ht}px;left:${0.05*wid}px;height:${ht*0.1}px;width:${0.38*wid}px"></div>
+                </div>`;
+            }
+            else{
+                output += `<div id="slot-${i}-${j}" style="display:none;border-style:outset;background-color:white;position:absolute;top:${i*ht*1.2}px;left:${j*wid*1.1}px;height:${ht}px;width:${wid}px;">
+                <div id="slot-${i}-${j}-name" style="display:grid;grid-template-columns: fit-content(300px) 1fr;background-color:lightgrey;position:absolute;top:0;left:${wid/10}px;height:${ht*0.2}px;width:${wid*0.85}px"></div>
+                <div id="slot-${i}-${j}-atk" style="position:absolute;top:${0.8*ht}px;left:${0.6*wid}px;height:${ht*0.1}px;width:${0.38*wid}px"></div>
+                <div id="slot-${i}-${j}-hp" style="position:absolute;top:${0.9*ht}px;left:${0.6*wid}px;height:${ht*0.1}px;width:${0.38*wid}px"></div>
+                <div id="slot-${i}-${j}-sk1" style="position:absolute;top:${0.7*ht}px;left:${0.05*wid}px;height:${ht*0.1}px;width:${0.38*wid}px"></div>
+                <div id="slot-${i}-${j}-sk2" style="position:absolute;top:${0.8*ht}px;left:${0.05*wid}px;height:${ht*0.1}px;width:${0.38*wid}px"></div>
+                <div id="slot-${i}-${j}-sk3" style="position:absolute;top:${0.9*ht}px;left:${0.05*wid}px;height:${ht*0.1}px;width:${0.38*wid}px"></div>
+                <div id="slot-${i}-${j}-st1" style="position:absolute;top:${0.23*ht}px;left:${0.05*wid}px;height:${ht*0.2}px;width:${0.25*wid}px"></div>
+                <div id="slot-${i}-${j}-st2" style="position:absolute;top:${0.23*ht}px;left:${0.3*wid}px;height:${ht*0.2}px;width:${0.25*wid}px"></div>
+                <div id="slot-${i}-${j}-st3" style="position:absolute;top:${0.23*ht}px;left:${0.55*wid}px;height:${ht*0.2}px;width:${0.25*wid}px"></div>
+                <div id="slot-${i}-${j}-st4" style="position:absolute;top:${0.46*ht}px;left:${0.05*wid}px;height:${ht*0.2}px;width:${0.25*wid}px"></div>
+                <div id="slot-${i}-${j}-st5" style="position:absolute;top:${0.46*ht}px;left:${0.3*wid}px;height:${ht*0.2}px;width:${0.25*wid}px"></div>
+                <div id="slot-${i}-${j}-st6" style="position:absolute;top:${0.46*ht}px;left:${0.55*wid}px;height:${ht*0.2}px;width:${0.25*wid}px"></div>
+                </div>`;
+            }
         }
-        output += "</tr>";
     }
-    output += "</table>";
     document.getElementById("div-display").innerHTML = output;
     board.whos_turn = 0;
     board.prepared = 0;
     place(Hero0, 0, 0, 0);
     place(Hero1, 0, 0, 0);
     board.prepared = 1;
-    board.sleep = 2;
+    board.sleep = 3;
 };
 
